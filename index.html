@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHROMADRIFT // 3D Prism Overdrive</title>
+  </head>
+  <body>
+    <div id="app" class="game-viewport">
+      <!-- High-Resolution WebGL2 3D Canvas -->
+      <canvas
+        id="game-canvas"
+        class="game-canvas"
+        aria-label="ChromaDrift 3D Prism Overdrive game viewport"
+      ></canvas>
+
+      <!-- Subtle chromatic vignette & phase-shift tint overlay (CSS compositor only) -->
+      <div id="chroma-vignette" class="chroma-vignette" aria-hidden="true"></div>
+
+      <!-- Top HUD Bar (shown during gameplay) -->
+      <header id="hud-top" class="hud-top" hidden>
+        <div class="hud-panel hud-score-panel">
+          <div class="hud-label">SCORE</div>
+          <div id="hud-score" class="hud-value hud-tabular">0</div>
+          <div class="hud-subrow">
+            <span class="hud-chip" id="hud-zone">ZONE 1 · PRISM BAY</span>
+            <span class="hud-chip hud-multiplier" id="hud-multiplier">x1.0</span>
+          </div>
+        </div>
+
+        <!-- Active Chromatic Frequency Selector Indicator -->
+        <div class="hud-panel hud-frequency-panel" aria-label="Chromatic frequency">
+          <div class="freq-pills">
+            <div class="freq-pill" data-freq="cyan" id="pill-cyan">
+              <span class="freq-key">Q / 1</span>
+              <span class="freq-glyph" aria-hidden="true">◆</span>
+              <span class="freq-name">CYAN</span>
+            </div>
+            <div class="freq-pill" data-freq="magenta" id="pill-magenta">
+              <span class="freq-key">E / 2</span>
+              <span class="freq-glyph" aria-hidden="true">▲</span>
+              <span class="freq-name">MAGENTA</span>
+            </div>
+            <div class="freq-pill" data-freq="gold" id="pill-gold">
+              <span class="freq-key">R / 3</span>
+              <span class="freq-glyph" aria-hidden="true">◉</span>
+              <span class="freq-name">GOLD</span>
+            </div>
+          </div>
+          <div class="nova-meter-wrap">
+            <div class="nova-meter-header">
+              <span>PRISMATIC NOVA [X]</span>
+              <span id="hud-nova-pct" class="hud-tabular">0%</span>
+            </div>
+            <div class="nova-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="nova-progressbar">
+              <div class="nova-fill" id="hud-nova-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-panel hud-status-panel">
+          <div class="hud-status-row">
+            <div>
+              <div class="hud-label">SHIELD</div>
+              <div class="shield-pips" id="hud-shields" aria-label="Shield integrity">
+                <span class="shield-pip active"></span>
+                <span class="shield-pip active"></span>
+                <span class="shield-pip active"></span>
+                <span class="shield-pip active"></span>
+              </div>
+            </div>
+            <div class="hud-speed-block">
+              <div class="hud-label">VELOCITY</div>
+              <div id="hud-speed" class="hud-value-sm hud-tabular">240 KM/H</div>
+            </div>
+          </div>
+          <div class="hud-actions-row">
+            <button type="button" class="hud-btn" id="btn-camera" title="Switch Camera (V)">
+              <span aria-hidden="true">🎥</span>
+              <span id="hud-cam-label">CHASE</span>
+            </button>
+            <button type="button" class="hud-btn" id="btn-audio" title="Toggle Synth Audio (M)">
+              <span aria-hidden="true">🔊</span>
+              <span id="hud-audio-label">SYNTH</span>
+            </button>
+            <button
+              type="button"
+              class="hud-btn"
+              id="btn-settings"
+              command="show-modal"
+              commandfor="settings-dialog"
+              title="Settings & Controls (Esc / P)"
+            >
+              <span aria-hidden="true">⚙</span>
+              <span>PAUSE</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Live Combo / Event Toast Banner -->
+      <div id="hud-callout" class="hud-callout" aria-live="polite"></div>
+
+      <!-- Bottom Live Multi-Key Reactive Telemetry Strip -->
+      <footer id="hud-keys" class="hud-keys" hidden aria-label="Active keyboard controls">
+        <div class="keycap-cluster">
+          <kbd class="keycap" data-key="KeyQ">Q <small>◆</small></kbd>
+          <kbd class="keycap" data-key="KeyE">E <small>▲</small></kbd>
+          <kbd class="keycap" data-key="KeyR">R <small>◉</small></kbd>
+          <span class="cluster-label">SHIFT COLOR</span>
+        </div>
+        <div class="keycap-cluster">
+          <kbd class="keycap" data-key="KeyW">W <small>BOOST</small></kbd>
+          <kbd class="keycap" data-key="KeyA">A</kbd>
+          <kbd class="keycap" data-key="KeyS">S <small>DRIFT</small></kbd>
+          <kbd class="keycap" data-key="KeyD">D</kbd>
+          <span class="cluster-label">FLIGHT</span>
+        </div>
+        <div class="keycap-cluster">
+          <kbd class="keycap" data-key="ShiftLeft">SHIFT <small>DASH</small></kbd>
+          <kbd class="keycap keycap-wide" data-key="Space">SPACE <small>SURGE / GLIDE</small></kbd>
+          <kbd class="keycap" data-key="KeyC">C <small>DIVE SLAM</small></kbd>
+          <kbd class="keycap" data-key="KeyF">F <small>FIRE</small></kbd>
+          <kbd class="keycap keycap-nova" data-key="KeyX">X <small>NOVA</small></kbd>
+        </div>
+      </footer>
+
+      <!-- Title Screen Overlay (Sits over live 3D orbiting showcase) -->
+      <section id="overlay-title" class="overlay-screen" aria-labelledby="title-heading">
+        <div class="title-card">
+          <div class="title-badge">NO CREDENTIALS · REAL-TIME 3D WEBGL2 · HIGH-RES PRISM ENGINE</div>
+          <h1 id="title-heading" class="game-title">
+            <span class="title-chroma">CHROMA</span><span class="title-drift">DRIFT</span>
+          </h1>
+          <p class="title-subtitle">
+            Carve through a bioluminescent 3D skyway, shift chromatic frequencies mid-flight, shatter prism sentinels, and unleash rainbow shockwaves.
+          </p>
+
+          <div class="title-mechanics-grid">
+            <div class="mech-item">
+              <span class="mech-keys">W A S D</span>
+              <span class="mech-desc">Bank, Carve, Boost &amp; Air-Brake</span>
+            </div>
+            <div class="mech-item">
+              <span class="mech-keys">Q · E · R / 1 · 2 · 3</span>
+              <span class="mech-desc">Phase-Shift Color (<span class="c-cyan">◆</span> <span class="c-mag">▲</span> <span class="c-gold">◉</span>)</span>
+            </div>
+            <div class="mech-item">
+              <span class="mech-keys">SPACE / SHIFT / C</span>
+              <span class="mech-desc">Double-Surge, Barrel Roll Dash &amp; Dive Slam</span>
+            </div>
+            <div class="mech-item">
+              <span class="mech-keys">F / X / V</span>
+              <span class="mech-desc">Plasma Cannons, Rainbow Nova &amp; Camera</span>
+            </div>
+          </div>
+
+          <div class="title-actions">
+            <button type="button" id="btn-launch" class="btn-primary">
+              <span>IGNITE PRISM DRIVE</span>
+              <kbd>ENTER / SPACE</kbd>
+            </button>
+            <button
+              type="button"
+              id="btn-title-settings"
+              class="btn-secondary"
+              command="show-modal"
+              commandfor="settings-dialog"
+            >
+              <span>VISUALS &amp; PALETTE</span>
+            </button>
+          </div>
+
+          <div class="title-highscore">
+            BEST RUN: <strong id="title-best-score" class="hud-tabular">0</strong>
+            <span class="sep">·</span>
+            LONGEST DRIFT: <strong id="title-best-dist" class="hud-tabular">0 m</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Game Over Summary Overlay -->
+      <section id="overlay-gameover" class="overlay-screen" hidden aria-labelledby="gameover-heading">
+        <div class="title-card gameover-card">
+          <div class="title-badge">PRISM CORE DEPLETED</div>
+          <h2 id="gameover-heading" class="gameover-title">RUN COMPLETE</h2>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">FINAL SCORE</span>
+              <strong id="go-score" class="stat-value hud-tabular">0</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">BEST SCORE</span>
+              <strong id="go-best" class="stat-value hud-tabular">0</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">DISTANCE</span>
+              <strong id="go-distance" class="stat-value hud-tabular">0 m</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">PEAK COMBO</span>
+              <strong id="go-combo" class="stat-value hud-tabular">x1.0</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">GATES PHASED</span>
+              <strong id="go-gates" class="stat-value hud-tabular">0</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">DRONES SHATTERED</span>
+              <strong id="go-kills" class="stat-value hud-tabular">0</strong>
+            </div>
+          </div>
+
+          <div class="title-actions">
+            <button type="button" id="btn-retry" class="btn-primary">
+              <span>RE-IGNITE IMMEDIATELY</span>
+              <kbd>ENTER / R</kbd>
+            </button>
+            <button type="button" id="btn-back-title" class="btn-secondary">
+              <span>TITLE SHOWCASE</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Native Modal <dialog> for Pause / High-Res Graphics & Color Themes -->
+      <dialog id="settings-dialog" class="settings-dialog" closedby="any" aria-labelledby="settings-title">
+        <div class="dialog-shell">
+          <div class="dialog-header">
+            <h2 id="settings-title">SYSTEM &amp; CHROMATIC VISUALS</h2>
+            <form method="dialog">
+              <button type="submit" value="close" class="dialog-close" aria-label="Close settings">✕</button>
+            </form>
+          </div>
+
+          <div class="dialog-body">
+            <div class="setting-group">
+              <label for="select-resolution" class="setting-label">
+                <span>RENDER RESOLUTION</span>
+                <small>Adjust internal pixel density (HiDPI / Supersampling)</small>
+              </label>
+              <select id="select-resolution" class="setting-select">
+                <option value="1">Crisp Native (1.0x)</option>
+                <option value="1.5">High Resolution (1.5x)</option>
+                <option value="2" selected>Ultra HiDPI (2.0x)</option>
+                <option value="2.5">Extreme 4K Supersample (2.5x)</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label for="select-palette" class="setting-label">
+                <span>COLOR SPECTRUM THEME</span>
+                <small>Shifts neon crystal hues &amp; sky aurora spectrum</small>
+              </label>
+              <select id="select-palette" class="setting-select">
+                <option value="prism" selected>Prismatic Neon (Cyan / Magenta / Gold)</option>
+                <option value="aurora">Aurora Borealis (Ice Mint / Violet / Coral)</option>
+                <option value="synth">Solar Synthwave (Electric Blue / Crimson / Amber)</option>
+                <option value="contrast">High-Contrast Vivid (Sky / Hot Pink / Lime-Gold)</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label for="range-brightness" class="setting-label">
+                <span>OBJECT &amp; SCENE BRIGHTNESS</span>
+                <small id="brightness-val-label">80%</small>
+              </label>
+              <input id="range-brightness" type="range" min="0.25" max="1.5" step="0.05" value="0.8" class="setting-range" />
+            </div>
+
+            <div class="setting-group">
+              <label for="range-bloom" class="setting-label">
+                <span>PRISM BLOOM GLOW</span>
+                <small id="bloom-val-label">45%</small>
+              </label>
+              <input id="range-bloom" type="range" min="0.1" max="1.2" step="0.05" value="0.45" class="setting-range" />
+            </div>
+
+            <div class="setting-group">
+              <label for="select-camera" class="setting-label">
+                <span>CAMERA RIG</span>
+                <small>Press V anytime in-flight to cycle</small>
+              </label>
+              <select id="select-camera" class="setting-select">
+                <option value="0" selected>Dynamic Chase Cam</option>
+                <option value="1">Low Hyper-Speed Cam</option>
+                <option value="2">Cockpit Nose Cam</option>
+                <option value="3">Cinematic Wide Drone</option>
+              </select>
+            </div>
+
+            <div class="controls-reference">
+              <h3>MULTI-KEY FLIGHT &amp; COMBAT DECK</h3>
+              <div class="controls-table">
+                <div><kbd>W</kbd> / <kbd>↑</kbd></div><div>Afterburner Speed Boost</div>
+                <div><kbd>S</kbd> / <kbd>↓</kbd></div><div>Precision Air-Brake Drift</div>
+                <div><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></div><div>Banked Lateral Carve</div>
+                <div><kbd>Q</kbd> <kbd>E</kbd> <kbd>R</kbd> or <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div><div>Shift Frequency (Cyan ◆ / Magenta ▲ / Gold ◉)</div>
+                <div><kbd>Space</kbd></div><div>Anti-Grav Jump, Double-Surge &amp; Hold to Hover</div>
+                <div><kbd>Shift</kbd></div><div>Barrel Roll Phase Dash (Invulnerable Burst)</div>
+                <div><kbd>C</kbd> / <kbd>Ctrl</kbd></div><div>Magnetic Dive Slam (Shatter Low Mines)</div>
+                <div><kbd>F</kbd> / <kbd>J</kbd> / <kbd>Click</kbd></div><div>Fire Twin Chromatic Plasma Cannons</div>
+                <div><kbd>X</kbd> / <kbd>G</kbd></div><div>Unleash Rainbow Prismatic Nova (at 100%)</div>
+                <div><kbd>V</kbd> / <kbd>Tab</kbd></div><div>Switch 3D Camera Perspective</div>
+                <div><kbd>M</kbd></div><div>Mute / Unmute Dynamic Synthwave Audio</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dialog-footer">
+            <form method="dialog" class="dialog-footer-form">
+              <button type="submit" value="resume" class="btn-primary" autofocus>RESUME FLIGHT</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
